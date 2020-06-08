@@ -1,11 +1,11 @@
 import React, {Component} from 'react';
-import {Text, Layout, Avatar} from 'react-native-ui-kitten';
-import {View, TouchableOpacity} from 'react-native';
+import {Text, Layout, Avatar, List, withStyles} from 'react-native-ui-kitten';
+import {View, TouchableOpacity, ScrollView} from 'react-native';
 import ImagePicker from 'react-native-image-picker';
 import auth from '@react-native-firebase/auth';
 import {withFirebaseHOC} from '../utils';
 
-class Profile extends Component {
+class _Profile extends Component {
   state = {
     id: '',
     name: '',
@@ -13,6 +13,8 @@ class Profile extends Component {
     email: '',
     avatar: '',
     posts: [],
+    postsDATA: [],
+    isRefreshing: false,
   };
 
   getProfileData = async () => {
@@ -23,13 +25,28 @@ class Profile extends Component {
 
     //get user data from firestore db
     const userProfile = await this.props.firebase.getUser(userId);
+    const userPosts = await this.props.firebase.getUserPosts(userId);
     console.log('Profile of user: ', userProfile);
-    this.setState(userProfile);
+    this.setState({
+      id: userId,
+      name: userProfile.name,
+      username: userProfile.username,
+      email: userProfile.email,
+      avatar: userProfile.avatar,
+      posts: userProfile.posts,
+      postsDATA: userPosts
+    });
+    console.log('Posts: ', userPosts)
   };
 
   componentDidMount() {
     //start retrieval of user data
-    const userData = this.getProfileData();
+    this.getProfileData();
+  }
+
+  onRefresh() {
+    //refresh user data
+    this.getProfileData();
   }
 
   //change image URL callback for firebase upload/download image
@@ -78,25 +95,82 @@ class Profile extends Component {
     const avatarUri = {
       uri: this.state.avatar,
     };
+    const renderItem = ({item}) => (
+      <PostItem item={item} navigation={this.props.navigation} />
+    );
+
     return (
       <Layout
         style={{
           flex: 1,
-          alignItems: 'center',
-          justifyContent: 'center',
+          paddingTop: 8,
         }}>
-        {this.state.avatar !== '' && (
-          <TouchableOpacity onPress={() => this.selectImage()}>
-            <Avatar source={avatarUri} size="giant" />
-          </TouchableOpacity>
+        <Layout
+          style={{
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}>
+          {this.state.avatar !== '' && (
+            <TouchableOpacity onPress={() => this.selectImage()}>
+              <Avatar source={avatarUri} size="giant" />
+            </TouchableOpacity>
+          )}
+          <Text>@{this.state.username}</Text>
+          <Text>{this.state.name}</Text>
+          <Text>{this.state.email}</Text>
+        </Layout>
+        {this.state.posts.length > 0 && (
+          //User has posts
+          //return styled list, items rendered by renderItem method
+          <List
+            style={this.props.themedStyle.container}
+            data={this.state.postsDATA}
+            renderItem={renderItem}
+            keyExtractor={this.state.postsDATA.id}
+            refreshing={this.state.isRefreshing}
+            onRefresh={() => this.onRefresh()}
+          />
         )}
-        <Text>@{this.state.username}</Text>
-        <Text>{this.state.name}</Text>
-        <Text>{this.state.email}</Text>
       </Layout>
     );
   }
 }
 
 //wrap in Firebase HOC
-export default withFirebaseHOC(Profile);
+export default (Profile = withFirebaseHOC(
+  withStyles(_Profile, theme => ({
+    container: {
+      flex: 1,
+      borderWidth: 5,
+      borderTopLeftRadius: 15,
+      borderTopRightRadius: 15,
+      marginTop: 3,
+      padding: 5
+    },
+    card: {
+      backgroundColor: theme['color-basic-100'],
+      marginBottom: 2,
+    },
+    cardImage: {
+      width: '100%',
+      height: 300,
+    },
+    cardHeader: {
+      padding: 5,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    cardTitle: {
+      color: theme['color-basic-1000'],
+    },
+    cardAvatar: {
+      marginRight: 16,
+    },
+    cardContent: {
+      padding: 15,
+      borderWidth: 0.25,
+      borderColor: theme['color-basic-600'],
+    },
+  })),
+));

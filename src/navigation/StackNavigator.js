@@ -17,7 +17,7 @@ export const FeedHeader = createAppContainer(
         headerLeft: () => (
           //sign out button
           <Button
-            style={{margin: 2}}
+            style={{margin: 1}}
             appearance="ghost"
             status="basic"
             onPress={() => {
